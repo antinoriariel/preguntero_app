@@ -54,4 +54,9 @@ final class Pregunta
     {
         Database::run('DELETE FROM preguntas WHERE id_pregunta = ?', [$id]);
     }
+
+    public static function all(): array
+    {
+        return Database::run('SELECT * FROM preguntas ORDER BY id_pregunta')->fetchAll();
+    }
 }

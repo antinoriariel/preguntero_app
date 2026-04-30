@@ -127,6 +127,29 @@ final class PreguntaController
      * Valida el formulario de pregunta+respuestas.
      * Devuelve [errors, enunciado, respuestas].
      */
+    public function simulador(): void
+    {
+        Session::requireLogin();
+
+        $questionsData = [];
+        foreach (Pregunta::all() as $p) {
+            $rs = Respuesta::findByPregunta((int)$p['id_pregunta']);
+            if (empty($rs)) continue;
+            if (empty(array_filter($rs, fn($r) => (bool)$r['es_correcta']))) continue;
+
+            $questionsData[] = [
+                'id'        => $p['id_pregunta'],
+                'enunciado' => $p['enunciado'],
+                'respuestas' => array_values(array_map(fn($r) => [
+                    'texto'       => $r['respuesta'],
+                    'es_correcta' => (bool)$r['es_correcta'],
+                ], $rs)),
+            ];
+        }
+
+        require __DIR__ . '/../views/simulador.php';
+    }
+
     private function validateForm(array $post): array
     {
         $errors    = [];

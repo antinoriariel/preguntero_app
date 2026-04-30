@@ -47,6 +47,11 @@ $_title   = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' . $_name 
                         <i class="fa-solid fa-plus me-1"></i>Nueva
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/simulador">
+                        <i class="fa-solid fa-bolt me-1"></i>Simulador
+                    </a>
+                </li>
             </ul>
             <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
                 <li class="nav-item">

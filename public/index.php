@@ -41,6 +41,9 @@ if ($uri === '/register' && $method === 'GET')  { $auth->showRegister(); exit; }
 if ($uri === '/register' && $method === 'POST') { $auth->register();     exit; }
 if ($uri === '/logout')                         { $auth->logout();       exit; }
 
+// Simulador
+if ($uri === '/simulador' && $method === 'GET') { $preguntas->simulador(); exit; }
+
 // Preguntas (rutas estáticas primero)
 if ($uri === '/preguntas'        && $method === 'GET')  { $preguntas->index();  exit; }
 if ($uri === '/preguntas/create' && $method === 'GET')  { $preguntas->create(); exit; }
