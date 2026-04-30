@@ -42,10 +42,10 @@ $success = Session::getFlash('success');
 <?php else: ?>
   <ul class="list-group mb-4">
     <?php foreach ($respuestas as $r): ?>
-      <li class="list-group-item d-flex justify-content-between align-items-center">
-        <?= htmlspecialchars($r['respuesta']) ?>
+      <li class="list-group-item d-flex justify-content-between align-items-start gap-2 py-3">
+        <span><?= htmlspecialchars($r['respuesta']) ?></span>
         <?php if ($r['es_correcta']): ?>
-          <span class="badge bg-success ms-2">
+          <span class="badge bg-success flex-shrink-0 align-self-center">
             <i class="fa-solid fa-check me-1"></i>Correcta
           </span>
         <?php endif; ?>

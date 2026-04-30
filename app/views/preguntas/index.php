@@ -3,6 +3,12 @@ declare(strict_types=1);
 $pageTitle = 'Preguntas';
 require __DIR__ . '/../layouts/header.php';
 
+$search = isset($search) ? (string) $search : '';
+$page   = isset($page) ? (int) $page : 1;
+$pages  = isset($pages) ? (int) $pages : 1;
+$total  = isset($total) ? (int) $total : 0;
+$preguntas = isset($preguntas) && is_array($preguntas) ? $preguntas : [];
+
 $success = Session::getFlash('success');
 ?>
 
@@ -13,7 +19,7 @@ $success = Session::getFlash('success');
   </div>
 <?php endif; ?>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center justify-content-between gap-2 mb-3">
   <h2 class="mb-0">Preguntas</h2>
   <a href="/preguntas/create" class="btn btn-dark btn-sm">
     <i class="fa-solid fa-plus me-1"></i>Nueva pregunta
@@ -44,9 +50,9 @@ $success = Session::getFlash('success');
   <div class="list-group mb-4">
     <?php foreach ($preguntas as $p): ?>
       <a href="/preguntas/<?= $p['id_pregunta'] ?>"
-         class="list-group-item list-group-item-action d-flex justify-content-between align-items-start py-3">
-        <span class="me-3"><?= htmlspecialchars($p['enunciado']) ?></span>
-        <small class="text-muted text-nowrap mt-1">
+         class="list-group-item list-group-item-action d-flex flex-column flex-sm-row justify-content-between align-items-start gap-1 gap-sm-3 py-3">
+        <span class="me-sm-3"><?= htmlspecialchars($p['enunciado']) ?></span>
+        <small class="text-muted mt-0 mt-sm-1">
           <?= date('d/m/Y', strtotime($p['created_at'])) ?>
         </small>
       </a>
@@ -54,8 +60,8 @@ $success = Session::getFlash('success');
   </div>
 
   <?php if ($pages > 1): ?>
-  <nav aria-label="Paginación">
-    <ul class="pagination">
+  <nav aria-label="Paginación" class="mt-2">
+    <ul class="pagination flex-wrap gap-1">
       <?php if ($page > 1): ?>
         <li class="page-item">
           <a class="page-link" href="/preguntas?page=<?= $page - 1 ?><?= $search !== '' ? '&q=' . urlencode($search) : '' ?>">

@@ -132,7 +132,7 @@ if (!empty($old['respuesta'])) {
     </p>
   </div>
 
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 flex-wrap">
     <button type="submit" class="btn btn-dark">
       <i class="fa-solid fa-floppy-disk me-1"></i>Guardar
     </button>

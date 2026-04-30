@@ -1,37 +1,11 @@
 <?php
 declare(strict_types=1);
+/** @var array $questionsData Inyectado por PreguntaController::simulador() */
 $pageTitle    = 'Simulador';
 $totalQ       = count($questionsData);
 $questionsJson = json_encode($questionsData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE);
 require __DIR__ . '/layouts/header.php';
 ?>
-
-<style>
-/* ── Simulador pantallas ─────────────────────────────────────── */
-.screen { animation: fadeIn .25s ease both; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-
-/* ── Timer bar ───────────────────────────────────────────────── */
-#quiz-timer-bar { transition: background-color .4s, width .1s linear; }
-
-/* ── Pregunta card ───────────────────────────────────────────── */
-#quiz-question { color: var(--tech-text); font-size: 1.05rem; }
-
-/* ── SVG ring ────────────────────────────────────────────────── */
-.score-ring { transform: rotate(-90deg); }
-.score-ring-bg  { fill: none; stroke: rgba(255,255,255,.1); stroke-width: 9; }
-.score-ring-val {
-    fill: none; stroke-width: 9; stroke-linecap: round;
-    transition: stroke-dashoffset .85s cubic-bezier(.4,0,.2,1), stroke .4s;
-}
-#score-text {
-    font-family: inherit; font-weight: 700; font-size: 1.35rem;
-    fill: var(--tech-text);
-}
-
-/* ── Results table ───────────────────────────────────────────── */
-#res-table td { vertical-align: middle; font-size: .86rem; }
-</style>
 
 <!-- ═══════════════════════════════════════════════════════════
      PANTALLA 1 — CONFIGURACIÓN
@@ -67,8 +41,8 @@ require __DIR__ . '/layouts/header.php';
             </div>
             <div class="d-flex align-items-center justify-content-center gap-2">
               <label for="custom-time" class="form-label mb-0 text-muted small">Personalizado:</label>
-              <input type="number" id="custom-time" class="form-control form-control-sm text-center"
-                     min="5" max="300" placeholder="seg" style="width:80px">
+              <input type="number" id="custom-time" class="form-control form-control-sm text-center w-auto"
+                     min="5" max="300" placeholder="seg" size="4">
             </div>
           </div>
 
@@ -95,12 +69,12 @@ require __DIR__ . '/layouts/header.php';
 <div id="screen-quiz" class="screen d-none">
 
   <!-- Progreso + temporizador -->
-  <div class="d-flex justify-content-between align-items-baseline mb-1">
+  <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-baseline gap-1 mb-1">
     <span id="quiz-progress" class="text-muted small fw-bold"></span>
     <span id="quiz-timer-secs" class="fw-bold fs-4 font-monospace">30</span>
   </div>
-  <div class="progress mb-4" style="height:7px;border-radius:4px">
-    <div id="quiz-timer-bar" class="progress-bar bg-success" style="width:100%"></div>
+  <div class="progress mb-4 rounded-pill">
+    <div id="quiz-timer-bar" class="progress-bar bg-success" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
   </div>
 
   <!-- Enunciado -->
@@ -129,39 +103,39 @@ require __DIR__ . '/layouts/header.php';
 
   <!-- Círculo SVG + tarjetas de stats -->
   <div class="row justify-content-center g-3 mb-4 align-items-center">
-    <div class="col-auto text-center">
-      <svg width="140" height="140" viewBox="0 0 100 100">
-        <circle class="score-ring-bg" cx="50" cy="50" r="42"/>
-        <circle id="score-ring-val" class="score-ring-val score-ring" cx="50" cy="50" r="42"
-                stroke="#198754"
-                stroke-dasharray="263.9"
-                stroke-dashoffset="263.9"/>
-        <text id="score-text" x="50" y="56" text-anchor="middle">0%</text>
+    <div class="col-12 col-sm-auto text-center">
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="#dee2e6" stroke-opacity=".25" stroke-width="9"/>
+        <circle id="score-ring-val" cx="50" cy="50" r="42" fill="none"
+          stroke="#198754" stroke-width="9" stroke-linecap="round"
+          stroke-dasharray="263.9" stroke-dashoffset="263.9"
+          transform="rotate(-90 50 50)"/>
+        <text id="score-text" x="50" y="56" text-anchor="middle" fill="#212529">0%</text>
       </svg>
       <div class="text-muted small mt-1">Aciertos</div>
     </div>
 
     <div class="col-sm">
       <div class="row g-2">
-        <div class="col-6 col-sm-12 col-md-6">
+        <div class="col-6">
           <div class="card text-center py-3">
             <div id="res-correct" class="display-6 fw-bold text-success">0</div>
             <div class="small text-muted">Correctas</div>
           </div>
         </div>
-        <div class="col-6 col-sm-12 col-md-6">
+        <div class="col-6">
           <div class="card text-center py-3">
             <div id="res-wrong" class="display-6 fw-bold text-danger">0</div>
             <div class="small text-muted">Incorrectas</div>
           </div>
         </div>
-        <div class="col-6 col-sm-12 col-md-6">
+        <div class="col-6">
           <div class="card text-center py-3">
             <div id="res-avg" class="display-6 fw-bold text-primary">—</div>
             <div class="small text-muted">Tiempo promedio</div>
           </div>
         </div>
-        <div class="col-6 col-sm-12 col-md-6">
+        <div class="col-6">
           <div class="card text-center py-3">
             <div id="res-total" class="display-6 fw-bold">0</div>
             <div class="small text-muted">Total</div>
@@ -173,7 +147,7 @@ require __DIR__ . '/layouts/header.php';
 
   <!-- Detalle por pregunta -->
   <div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
       <span class="fw-bold">Detalle</span>
       <button class="btn btn-sm btn-outline-secondary" id="btn-toggle-table">
         <i class="fa-solid fa-chevron-down"></i>
@@ -184,11 +158,11 @@ require __DIR__ . '/layouts/header.php';
         <table id="res-table" class="table table-hover mb-0">
           <thead class="table-light">
             <tr>
-              <th style="width:42px" class="text-center">#</th>
+              <th class="text-center">#</th>
               <th>Enunciado</th>
               <th>Tu respuesta</th>
               <th>Resp. correcta</th>
-              <th style="width:75px">Tiempo</th>
+              <th>Tiempo</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -339,7 +313,8 @@ require __DIR__ . '/layouts/header.php';
         var elapsed = 0;
         var TICK   = 100; // ms
 
-        bar.style.backgroundColor = '#198754';
+      bar.classList.remove('bg-warning', 'bg-danger');
+      bar.classList.add('bg-success');
         bar.style.width = '100%';
         secsEl.textContent = total;
 
@@ -360,9 +335,10 @@ require __DIR__ . '/layouts/header.php';
             secsEl.textContent = Math.ceil(remaining);
 
             /* Color: verde → naranja → rojo */
-            if (pct <= 25)      bar.style.backgroundColor = '#dc3545';
-            else if (pct <= 50) bar.style.backgroundColor = '#fd7e14';
-            else                bar.style.backgroundColor = '#198754';
+            bar.classList.remove('bg-success', 'bg-warning', 'bg-danger');
+            if (pct <= 25)      bar.classList.add('bg-danger');
+            else if (pct <= 50) bar.classList.add('bg-warning');
+            else                bar.classList.add('bg-success');
         }, TICK);
     }
 
@@ -402,21 +378,14 @@ require __DIR__ . '/layouts/header.php';
         document.querySelectorAll('.answer-btn').forEach(function (btn) {
             btn.disabled = true;
             var i = parseInt(btn.dataset.idx, 10);
+          btn.classList.remove('btn-outline-dark', 'btn-success', 'btn-danger', 'text-white', 'opacity-50');
 
             if (answers[i].es_correcta) {
-                /* Respuesta/s correcta/s → verde */
-                btn.classList.remove('btn-outline-dark');
-                btn.classList.add('btn-success');
-                btn.style.color = '#fff';
-                btn.style.borderColor = '#198754';
+            btn.classList.add('btn-success', 'text-white');
             } else if (!isTimeout && i === selectedIdx) {
-                /* Selección incorrecta → roja */
-                btn.classList.remove('btn-outline-dark');
-                btn.classList.add('btn-danger');
-                btn.style.color = '#fff';
-                btn.style.borderColor = '#dc3545';
+            btn.classList.add('btn-danger', 'text-white');
             } else {
-                btn.style.opacity = '0.45';
+            btn.classList.add('opacity-50');
             }
         });
 
@@ -460,16 +429,16 @@ require __DIR__ . '/layouts/header.php';
         var offset       = circumference * (1 - pct / 100);
         var color        = pct >= 70 ? '#198754' : pct >= 50 ? '#fd7e14' : '#dc3545';
 
-        ring.style.stroke = color;
         /* Animar con requestAnimationFrame para que la transición CSS funcione */
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
-                ring.style.strokeDashoffset = offset;
+            ring.setAttribute('stroke', color);
+            ring.setAttribute('stroke-dashoffset', offset);
             });
         });
 
         el('score-text').textContent = pct + '%';
-        el('score-text').style.fill = color;
+        el('score-text').setAttribute('fill', color);
 
         /* Tarjetas */
         el('res-correct').textContent = correct;
@@ -485,8 +454,8 @@ require __DIR__ . '/layouts/header.php';
             var tr = document.createElement('tr');
 
             var iconHtml = r.correct
-                ? '<i class="fa-solid fa-check text-success"></i>'
-                : '<i class="fa-solid fa-xmark text-danger"></i>';
+              ? '<span class="badge bg-success">OK</span>'
+              : '<span class="badge bg-danger">X</span>';
 
             var selectedHtml;
             if (r.timeout) {
