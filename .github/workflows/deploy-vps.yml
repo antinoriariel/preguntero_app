@@ -17,14 +17,14 @@ jobs:
           script: |
             set -e
 
-            cd /var/www/preguntero_app
+            cd /var/www/preguntero.antinori.com.ar
 
             git fetch origin
             git reset --hard origin/main
 
-            sudo chown -R www-data:www-data /var/www/preguntero_app
-            sudo find /var/www/preguntero_app -type d -exec chmod 755 {} \;
-            sudo find /var/www/preguntero_app -type f -exec chmod 644 {} \;
+            sudo chown -R www-data:www-data /var/www/preguntero.antinori.com.ar
+            sudo find /var/www/preguntero.antinori.com.ar -type d -exec chmod 755 {} \;
+            sudo find /var/www/preguntero.antinori.com.ar -type f -exec chmod 644 {} \;
 
             sudo systemctl reload apache2
 
