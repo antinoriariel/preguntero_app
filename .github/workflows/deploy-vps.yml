@@ -19,6 +19,7 @@ jobs:
 
             cd /var/www/preguntero.antinori.com.ar
 
+            git config --global --add safe.directory /var/www/preguntero.antinori.com.ar
             git fetch origin
             git reset --hard origin/main
 
