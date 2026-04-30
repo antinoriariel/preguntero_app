@@ -7,32 +7,30 @@ require __DIR__ . '/layouts/header.php';
 ?>
 
 <style>
-/* ── Layout general ────────────────────────────────────────── */
-.screen { animation: fadeIn .2s ease; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* ── Simulador pantallas ─────────────────────────────────────── */
+.screen { animation: fadeIn .25s ease both; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-/* ── Timer bar ──────────────────────────────────────────────── */
-#quiz-timer-bar { transition: background-color .4s; }
+/* ── Timer bar ───────────────────────────────────────────────── */
+#quiz-timer-bar { transition: background-color .4s, width .1s linear; }
 
-/* ── Botones de respuesta ───────────────────────────────────── */
-.answer-btn {
-    min-height: 60px;
-    font-size: .95rem;
-    white-space: normal;
-    line-height: 1.4;
-    border-width: 2px;
-}
-.answer-btn:disabled { cursor: not-allowed; }
+/* ── Pregunta card ───────────────────────────────────────────── */
+#quiz-question { color: var(--tech-text); font-size: 1.05rem; }
 
-/* ── Círculo de resultado ───────────────────────────────────── */
+/* ── SVG ring ────────────────────────────────────────────────── */
 .score-ring { transform: rotate(-90deg); }
-.score-ring-bg  { fill: none; stroke: #dee2e6; stroke-width: 9; }
-.score-ring-val { fill: none; stroke-width: 9; stroke-linecap: round;
-                  transition: stroke-dashoffset .8s ease, stroke .4s; }
-#score-text { font-family: inherit; font-weight: 700; font-size: 1.35rem; fill: #212529; }
+.score-ring-bg  { fill: none; stroke: rgba(255,255,255,.1); stroke-width: 9; }
+.score-ring-val {
+    fill: none; stroke-width: 9; stroke-linecap: round;
+    transition: stroke-dashoffset .85s cubic-bezier(.4,0,.2,1), stroke .4s;
+}
+#score-text {
+    font-family: inherit; font-weight: 700; font-size: 1.35rem;
+    fill: var(--tech-text);
+}
 
-/* ── Tabla de detalle ───────────────────────────────────────── */
-#res-table td { vertical-align: middle; font-size: .88rem; }
+/* ── Results table ───────────────────────────────────────────── */
+#res-table td { vertical-align: middle; font-size: .86rem; }
 </style>
 
 <!-- ═══════════════════════════════════════════════════════════
