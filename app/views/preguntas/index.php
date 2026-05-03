@@ -21,9 +21,14 @@ $success = Session::getFlash('success');
 
 <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center justify-content-between gap-2 mb-3">
   <h2 class="mb-0">Preguntas</h2>
-  <a href="/preguntas/create" class="btn btn-dark btn-sm">
-    <i class="fa-solid fa-plus me-1"></i>Nueva pregunta
-  </a>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/preguntas/importar" class="btn btn-outline-dark btn-sm">
+      <i class="fa-solid fa-file-import me-1"></i>Importar lote
+    </a>
+    <a href="/preguntas/create" class="btn btn-dark btn-sm">
+      <i class="fa-solid fa-plus me-1"></i>Nueva pregunta
+    </a>
+  </div>
 </div>
 
 <form class="mb-4" method="GET" action="/preguntas">

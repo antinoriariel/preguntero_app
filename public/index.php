@@ -45,9 +45,11 @@ if ($uri === '/logout')                         { $auth->logout();       exit; }
 if ($uri === '/simulador' && $method === 'GET') { $preguntas->simulador(); exit; }
 
 // Preguntas (rutas estáticas primero)
-if ($uri === '/preguntas'        && $method === 'GET')  { $preguntas->index();  exit; }
-if ($uri === '/preguntas/create' && $method === 'GET')  { $preguntas->create(); exit; }
-if ($uri === '/preguntas/store'  && $method === 'POST') { $preguntas->store();  exit; }
+if ($uri === '/preguntas'           && $method === 'GET')  { $preguntas->index();       exit; }
+if ($uri === '/preguntas/create'    && $method === 'GET')  { $preguntas->create();      exit; }
+if ($uri === '/preguntas/store'     && $method === 'POST') { $preguntas->store();       exit; }
+if ($uri === '/preguntas/importar'  && $method === 'GET')  { $preguntas->importarForm(); exit; }
+if ($uri === '/preguntas/importar'  && $method === 'POST') { $preguntas->importar();    exit; }
 
 // Preguntas (rutas dinámicas con id)
 if (preg_match('#^/preguntas/(\d+)$#', $uri, $m) && $method === 'GET') {

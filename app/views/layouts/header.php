@@ -42,6 +42,11 @@ $_title = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' . $_name : 
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="/preguntas/importar">
+                        <i class="fa-solid fa-file-import me-1"></i>Importar
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="/simulador">
                         <i class="fa-solid fa-bolt me-1"></i>Simulador
                     </a>
@@ -90,6 +95,11 @@ $_title = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' . $_name : 
                     <li class="nav-item">
                         <a class="nav-link" href="/preguntas/create">
                             <i class="fa-solid fa-plus me-1"></i>Nueva
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/preguntas/importar">
+                            <i class="fa-solid fa-file-import me-1"></i>Importar
                         </a>
                     </li>
                     <li class="nav-item">

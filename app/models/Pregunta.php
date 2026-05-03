@@ -59,4 +59,42 @@ final class Pregunta
     {
         return Database::run('SELECT * FROM preguntas ORDER BY id_pregunta')->fetchAll();
     }
+
+    /**
+     * Inserts multiple questions with their answers atomically.
+     * Rolls back the entire batch on any failure.
+     * Returns ['count' => N, 'total_respuestas' => M].
+     */
+    public static function insertBatch(array $blocks): array
+    {
+        $pdo = Database::get();
+        $pdo->beginTransaction();
+
+        try {
+            $stmtP = $pdo->prepare('INSERT INTO preguntas (enunciado) VALUES (?)');
+            $stmtR = $pdo->prepare(
+                'INSERT INTO respuestas (id_pregunta, respuesta, es_correcta) VALUES (?, ?, ?)'
+            );
+
+            $count           = 0;
+            $totalRespuestas = 0;
+
+            foreach ($blocks as $block) {
+                $stmtP->execute([$block['enunciado']]);
+                $idPregunta = (int)$pdo->lastInsertId();
+                $count++;
+
+                foreach ($block['respuestas'] as $r) {
+                    $stmtR->execute([$idPregunta, $r['respuesta'], $r['es_correcta'] ? 1 : 0]);
+                    $totalRespuestas++;
+                }
+            }
+
+            $pdo->commit();
+            return ['count' => $count, 'total_respuestas' => $totalRespuestas];
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
 }
