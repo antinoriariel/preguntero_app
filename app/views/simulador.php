@@ -30,8 +30,8 @@ require __DIR__ . '/layouts/header.php';
 
           <!-- Progreso adaptativo guardado (oculto hasta que haya estado) -->
           <div id="progress-info" class="d-none mb-3">
-            <div class="alert alert-info py-2 px-3 mb-0 text-start small">
-              <i class="fa-solid fa-brain me-1"></i>
+            <div id="progress-alert" class="alert alert-info py-2 px-3 mb-0 text-start small">
+              <i id="progress-icon" class="fa-solid fa-brain me-1"></i>
               <span id="progress-label"></span>
             </div>
             <button id="btn-reset" class="btn btn-outline-danger btn-sm w-100 mt-2">
@@ -72,9 +72,10 @@ require __DIR__ . '/layouts/header.php';
           <div class="text-start mt-4 pt-3 border-top">
             <p class="small fw-semibold mb-1 text-muted">Repaso adaptativo</p>
             <ul class="small text-muted ps-3 mb-0">
-              <li>Las preguntas que fallás reaparecen antes en la próxima pasada.</li>
-              <li>Tras <strong>3 aciertos seguidos</strong>, una pregunta descansa 1 pasada completa.</li>
-              <li>El progreso se guarda en este navegador y sobrevive a recargas de página.</li>
+              <li>Las preguntas acertadas <strong>no aparecen en la siguiente pasada</strong>.</li>
+              <li>Las que fallás vuelven en la próxima pasada con mayor prioridad.</li>
+              <li>Tras <strong>3 aciertos consecutivos</strong> una pregunta queda dominada y deja de aparecer.</li>
+              <li>El progreso se guarda en el navegador y sobrevive a recargas de página.</li>
             </ul>
           </div>
 
@@ -211,9 +212,8 @@ require __DIR__ . '/layouts/header.php';
     var QUESTIONS = <?= $questionsJson ?>;
 
     /* ── Constantes del algoritmo adaptativo ──────────────────────────────── */
-    var STORAGE_KEY     = 'simulador_adaptive_v1';
-    var COOLDOWN_STREAK = 3;  // aciertos seguidos para entrar en pausa
-    var COOLDOWN_PASSES = 1;  // pasadas que dura la pausa
+    var STORAGE_KEY   = 'simulador_adaptive_v1';
+    var RETIRE_STREAK = 3;  // aciertos consecutivos para retirar la pregunta definitivamente
 
     /* ── Estado de sesión (no persistido) ─────────────────────────────────── */
     var state = {
@@ -229,17 +229,22 @@ require __DIR__ . '/layouts/header.php';
     /*
      * Estructura de adaptiveState:
      *   version         : 1
-     *   questionSetHash : string — ids de preguntas concatenados; si cambia, se descarta el estado
-     *   stats           : { [id]: { id, correctStreak, wrongCount, attempts, lastSeenAt, cooldownRemaining } }
+     *   questionSetHash : string — ids concatenados; si cambia, se descarta el estado guardado
+     *   stats           : { [id]: { id, correctStreak, wrongCount, attempts,
+     *                               lastSeenAt, cooldownRemaining, retired } }
      *   activeQueue     : number[] — ids ordenados para la pasada actual
-     *   passNumber      : number  — contador de pasadas (empieza en 1)
-     *   currentPassIdx  : number  — posición dentro de activeQueue
-     *   timeLimit       : number  — segundos por pregunta, para restaurar la selección
+     *   passNumber      : number   — contador de pasadas (empieza en 1)
+     *   currentPassIdx  : number   — posición dentro de activeQueue
+     *   timeLimit       : number   — segundos por pregunta, para restaurar la selección
      *
-     * Algoritmo de cola (buildQueue):
-     *   1. Excluir preguntas con cooldownRemaining > 0
-     *   2. Ordenar: más wrongCount → menor correctStreak → lastSeenAt más antiguo → id menor
-     *   3. Si todas están en pausa, liberar todas antes de ordenar
+     * Reglas por respuesta:
+     *   Acierto      → cooldownRemaining = 1 (salta la próxima pasada), correctStreak++
+     *   3 aciertos seguidos → retired = true (se retira definitivamente)
+     *   Fallo/timeout → wrongCount++, correctStreak = 0, cooldownRemaining = 0 (vuelve enseguida)
+     *
+     * buildQueue: excluye retired y cooldownRemaining > 0; ordena por wrongCount ↓,
+     *             correctStreak ↑, lastSeenAt ↑, id ↑. Si todas en pausa, libera
+     *             las no-retiradas. Si todas retiradas, devuelve array vacío.
      */
     var adaptiveState = null;
 
@@ -281,19 +286,26 @@ require __DIR__ . '/layouts/header.php';
 
     /*
      * Construye el orden de preguntas para la próxima pasada.
-     * Excluye preguntas en cooldown (cooldownRemaining > 0).
-     * Si todas están en cooldown, las libera a todas primero.
+     * Excluye: retired === true  y  cooldownRemaining > 0.
+     * Si todas las no-retiradas están en pausa, las libera.
+     * Si todas están retiradas, devuelve [] (startQuiz lo maneja).
      */
     function buildQueue(stats) {
         var activeIds = QUESTIONS
             .map(function (q) { return q.id; })
-            .filter(function (id) { return !(stats[id] && stats[id].cooldownRemaining > 0); });
+            .filter(function (id) {
+                var s = stats[id];
+                if (!s || s.retired) return false;
+                return !(s.cooldownRemaining > 0);
+            });
 
         if (activeIds.length === 0) {
-            QUESTIONS.forEach(function (q) {
-                if (stats[q.id]) stats[q.id].cooldownRemaining = 0;
+            // Liberar pausa de las no-retiradas (si todas están retiradas queda vacío)
+            var nonRetired = QUESTIONS.filter(function (q) {
+                return stats[q.id] && !stats[q.id].retired;
             });
-            activeIds = QUESTIONS.map(function (q) { return q.id; });
+            nonRetired.forEach(function (q) { stats[q.id].cooldownRemaining = 0; });
+            activeIds = nonRetired.map(function (q) { return q.id; });
         }
 
         activeIds.sort(function (a, b) {
@@ -312,7 +324,7 @@ require __DIR__ . '/layouts/header.php';
         QUESTIONS.forEach(function (q) {
             stats[q.id] = {
                 id: q.id, correctStreak: 0, wrongCount: 0,
-                attempts: 0, lastSeenAt: 0, cooldownRemaining: 0
+                attempts: 0, lastSeenAt: 0, cooldownRemaining: 0, retired: false
             };
         });
         return {
@@ -370,6 +382,7 @@ require __DIR__ . '/layouts/header.php';
             || (saved.passNumber === 1 && saved.currentPassIdx === 0);
         if (isVirginState) {
             infoDiv.classList.add('d-none');
+            el('btn-start').disabled = (QUESTIONS.length === 0);
             return;
         }
         infoDiv.classList.remove('d-none');
@@ -388,9 +401,28 @@ require __DIR__ . '/layouts/header.php';
             }
         }
 
+        var totalRetired = Object.keys(saved.stats).filter(function (id) {
+            return saved.stats[id] && saved.stats[id].retired;
+        }).length;
+        var allMastered  = QUESTIONS.length > 0 && totalRetired === QUESTIONS.length;
+        var alertEl      = el('progress-alert');
+        var iconEl       = el('progress-icon');
+
+        if (allMastered) {
+            alertEl.className  = 'alert alert-success py-2 px-3 mb-0 text-start small';
+            iconEl.className   = 'fa-solid fa-trophy me-1';
+            el('btn-start').disabled = true;
+            el('progress-label').textContent = '¡Dominaste todas las preguntas! Reiniciá el progreso para volver a practicar.';
+            return;
+        }
+
+        alertEl.className = 'alert alert-info py-2 px-3 mb-0 text-start small';
+        iconEl.className  = 'fa-solid fa-brain me-1';
+        el('btn-start').disabled = false;
+
         var active     = saved.activeQueue.length;
         var inCooldown = Object.keys(saved.stats).filter(function (id) {
-            return saved.stats[id].cooldownRemaining > 0;
+            return saved.stats[id].cooldownRemaining > 0 && !saved.stats[id].retired;
         }).length;
         var remaining  = Math.max(0, active - saved.currentPassIdx);
 
@@ -400,9 +432,8 @@ require __DIR__ . '/layouts/header.php';
         } else {
             label += ' · ' + active + ' pregunta' + (active !== 1 ? 's' : '');
         }
-        if (inCooldown > 0) {
-            label += ' · ' + inCooldown + ' en pausa';
-        }
+        if (inCooldown   > 0) label += ' · ' + inCooldown   + ' en pausa';
+        if (totalRetired > 0) label += ' · ' + totalRetired + ' dominada' + (totalRetired !== 1 ? 's' : '');
         el('progress-label').textContent = label;
     }
 
@@ -455,6 +486,12 @@ require __DIR__ . '/layouts/header.php';
             }
         } else {
             adaptiveState = buildFreshAdaptiveState();
+        }
+
+        // Cola vacía significa que todo está dominado; volver a setup con el banner de trofeo
+        if (!adaptiveState.activeQueue || adaptiveState.activeQueue.length === 0) {
+            showSetup();
+            return;
         }
 
         state.results = [];
@@ -558,13 +595,13 @@ require __DIR__ . '/layouts/header.php';
 
         if (isCorrect) {
             st.correctStreak++;
-            if (st.correctStreak >= COOLDOWN_STREAK) {
-                // Racha completada: entra en pausa
-                st.cooldownRemaining = COOLDOWN_PASSES;
-                st.correctStreak     = 0;
+            if (st.correctStreak >= RETIRE_STREAK) {
+                st.retired = true;          // dominada: sale del circuito definitivamente
+            } else {
+                st.cooldownRemaining = 1;   // acertada: salta la próxima pasada
             }
         } else {
-            // Fallo o timeout: reinicia racha, acumula error
+            // Fallo o timeout: reinicia racha, vuelve con prioridad alta
             st.wrongCount++;
             st.correctStreak = 0;
         }
