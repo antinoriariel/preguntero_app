@@ -28,6 +28,17 @@ require __DIR__ . '/layouts/header.php';
             <?php endif; ?>
           </p>
 
+          <!-- Progreso adaptativo guardado (oculto hasta que haya estado) -->
+          <div id="progress-info" class="d-none mb-3">
+            <div class="alert alert-info py-2 px-3 mb-0 text-start small">
+              <i class="fa-solid fa-brain me-1"></i>
+              <span id="progress-label"></span>
+            </div>
+            <button id="btn-reset" class="btn btn-outline-danger btn-sm w-100 mt-2">
+              <i class="fa-solid fa-arrow-rotate-left me-1"></i>Reiniciar progreso
+            </button>
+          </div>
+
           <!-- Selector de tiempo -->
           <div class="mb-4 text-start">
             <label class="form-label fw-bold d-block text-center mb-2">
@@ -56,6 +67,16 @@ require __DIR__ . '/layouts/header.php';
               <a href="/preguntas/create">Creá preguntas</a> para poder usar el simulador.
             </p>
           <?php endif; ?>
+
+          <!-- Documentación del algoritmo adaptativo -->
+          <div class="text-start mt-4 pt-3 border-top">
+            <p class="small fw-semibold mb-1 text-muted">Repaso adaptativo</p>
+            <ul class="small text-muted ps-3 mb-0">
+              <li>Las preguntas que fallás reaparecen antes en la próxima pasada.</li>
+              <li>Tras <strong>3 aciertos seguidos</strong>, una pregunta descansa 1 pasada completa.</li>
+              <li>El progreso se guarda en este navegador y sobrevive a recargas de página.</li>
+            </ul>
+          </div>
 
         </div>
       </div>
@@ -189,17 +210,38 @@ require __DIR__ . '/layouts/header.php';
     /* ── Datos inyectados por PHP ──────────────────────────────────────────── */
     var QUESTIONS = <?= $questionsJson ?>;
 
-    /* ── Estado ────────────────────────────────────────────────────────────── */
+    /* ── Constantes del algoritmo adaptativo ──────────────────────────────── */
+    var STORAGE_KEY     = 'simulador_adaptive_v1';
+    var COOLDOWN_STREAK = 3;  // aciertos seguidos para entrar en pausa
+    var COOLDOWN_PASSES = 1;  // pasadas que dura la pausa
+
+    /* ── Estado de sesión (no persistido) ─────────────────────────────────── */
     var state = {
-        questions:    [],   // QUESTIONS barajadas para la sesión actual
-        current:      0,    // índice de la pregunta actual
-        timeLimit:    30,   // segundos por pregunta
-        timerInt:     null, // ID del setInterval del temporizador
-        timerStartMs: 0,    // performance.now() al mostrar la pregunta
-        results:      [],   // resultados acumulados
-        curAnswers:   [],   // respuestas barajadas de la pregunta actual
-        answered:     false // bloquea doble-click
+        timeLimit:    30,
+        timerInt:     null,
+        timerStartMs: 0,
+        results:      [],
+        curAnswers:   [],
+        answered:     false
     };
+
+    /* ── Estado adaptativo (persistido en sessionStorage) ─────────────────── */
+    /*
+     * Estructura de adaptiveState:
+     *   version         : 1
+     *   questionSetHash : string — ids de preguntas concatenados; si cambia, se descarta el estado
+     *   stats           : { [id]: { id, correctStreak, wrongCount, attempts, lastSeenAt, cooldownRemaining } }
+     *   activeQueue     : number[] — ids ordenados para la pasada actual
+     *   passNumber      : number  — contador de pasadas (empieza en 1)
+     *   currentPassIdx  : number  — posición dentro de activeQueue
+     *   timeLimit       : number  — segundos por pregunta, para restaurar la selección
+     *
+     * Algoritmo de cola (buildQueue):
+     *   1. Excluir preguntas con cooldownRemaining > 0
+     *   2. Ordenar: más wrongCount → menor correctStreak → lastSeenAt más antiguo → id menor
+     *   3. Si todas están en pausa, liberar todas antes de ordenar
+     */
+    var adaptiveState = null;
 
     /* ── Helpers ───────────────────────────────────────────────────────────── */
     function el(id)  { return document.getElementById(id); }
@@ -229,8 +271,145 @@ require __DIR__ . '/layouts/header.php';
         });
     }
 
+    /* ── Cola adaptativa ───────────────────────────────────────────────────── */
+
+    function makeQSetHash() {
+        return QUESTIONS.map(function (q) { return q.id; })
+            .sort(function (a, b) { return a - b; })
+            .join(',');
+    }
+
+    /*
+     * Construye el orden de preguntas para la próxima pasada.
+     * Excluye preguntas en cooldown (cooldownRemaining > 0).
+     * Si todas están en cooldown, las libera a todas primero.
+     */
+    function buildQueue(stats) {
+        var activeIds = QUESTIONS
+            .map(function (q) { return q.id; })
+            .filter(function (id) { return !(stats[id] && stats[id].cooldownRemaining > 0); });
+
+        if (activeIds.length === 0) {
+            QUESTIONS.forEach(function (q) {
+                if (stats[q.id]) stats[q.id].cooldownRemaining = 0;
+            });
+            activeIds = QUESTIONS.map(function (q) { return q.id; });
+        }
+
+        activeIds.sort(function (a, b) {
+            var sa = stats[a], sb = stats[b];
+            if (sb.wrongCount    !== sa.wrongCount)    return sb.wrongCount    - sa.wrongCount;
+            if (sa.correctStreak !== sb.correctStreak) return sa.correctStreak - sb.correctStreak;
+            if (sa.lastSeenAt    !== sb.lastSeenAt)    return sa.lastSeenAt    - sb.lastSeenAt;
+            return a - b;
+        });
+
+        return activeIds;
+    }
+
+    function buildFreshAdaptiveState() {
+        var stats = {};
+        QUESTIONS.forEach(function (q) {
+            stats[q.id] = {
+                id: q.id, correctStreak: 0, wrongCount: 0,
+                attempts: 0, lastSeenAt: 0, cooldownRemaining: 0
+            };
+        });
+        return {
+            version:         1,
+            questionSetHash: makeQSetHash(),
+            stats:           stats,
+            activeQueue:     shuffle(QUESTIONS.map(function (q) { return q.id; })),
+            passNumber:      1,
+            currentPassIdx:  0,
+            timeLimit:       state.timeLimit
+        };
+    }
+
+    function loadAdaptiveState() {
+        try {
+            var raw = sessionStorage.getItem(STORAGE_KEY);
+            if (!raw) return null;
+            var s = JSON.parse(raw);
+            if (!s || s.version !== 1) return null;
+            if (s.questionSetHash !== makeQSetHash()) return null;
+            var valid = QUESTIONS.every(function (q) { return q.id in s.stats; });
+            if (!valid) return null;
+            return s;
+        } catch (e) { return null; }
+    }
+
+    function saveAdaptiveState() {
+        if (!adaptiveState) return;
+        adaptiveState.timeLimit = state.timeLimit;
+        try {
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(adaptiveState));
+        } catch (e) { /* sessionStorage no disponible */ }
+    }
+
+    function clearAdaptiveState() {
+        try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
+        adaptiveState = null;
+    }
+
+    function getCurrentQuestion() {
+        if (!adaptiveState) return null;
+        var id = adaptiveState.activeQueue[adaptiveState.currentPassIdx];
+        if (id === undefined) return null;
+        return QUESTIONS.find(function (q) { return q.id === id; }) || null;
+    }
+
     /* ── Pantalla de configuración ─────────────────────────────────────────── */
     var selectedSecs = 30;
+
+    function updateProgressInfo() {
+        var saved   = loadAdaptiveState();
+        var infoDiv = el('progress-info');
+
+        var isVirginState = !saved
+            || (saved.passNumber === 1 && saved.currentPassIdx === 0);
+        if (isVirginState) {
+            infoDiv.classList.add('d-none');
+            return;
+        }
+        infoDiv.classList.remove('d-none');
+
+        // Restaurar selección de tiempo del estado guardado
+        if (saved.timeLimit) {
+            var pill = document.querySelector('.time-pill[data-secs="' + saved.timeLimit + '"]');
+            if (pill) {
+                document.querySelectorAll('.time-pill').forEach(function (b) {
+                    b.classList.remove('btn-dark', 'active');
+                    b.classList.add('btn-outline-dark');
+                });
+                pill.classList.add('btn-dark', 'active');
+                pill.classList.remove('btn-outline-dark');
+                selectedSecs = saved.timeLimit;
+            }
+        }
+
+        var active     = saved.activeQueue.length;
+        var inCooldown = Object.keys(saved.stats).filter(function (id) {
+            return saved.stats[id].cooldownRemaining > 0;
+        }).length;
+        var remaining  = Math.max(0, active - saved.currentPassIdx);
+
+        var label = 'Pasada ' + saved.passNumber;
+        if (saved.currentPassIdx > 0) {
+            label += ' · ' + remaining + ' restante' + (remaining !== 1 ? 's' : '');
+        } else {
+            label += ' · ' + active + ' pregunta' + (active !== 1 ? 's' : '');
+        }
+        if (inCooldown > 0) {
+            label += ' · ' + inCooldown + ' en pausa';
+        }
+        el('progress-label').textContent = label;
+    }
+
+    function showSetup() {
+        updateProgressInfo();
+        showScreen('screen-setup');
+    }
 
     document.querySelectorAll('.time-pill').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -258,65 +437,84 @@ require __DIR__ . '/layouts/header.php';
         startQuiz();
     });
 
+    el('btn-reset').addEventListener('click', function () {
+        clearAdaptiveState();
+        updateProgressInfo();
+    });
+
     /* ── Lógica del cuestionario ───────────────────────────────────────────── */
     function startQuiz() {
-        state.questions = shuffle(QUESTIONS);
-        state.current   = 0;
-        state.results   = [];
+        var saved = loadAdaptiveState();
+        if (saved) {
+            adaptiveState = saved;
+            adaptiveState.timeLimit = state.timeLimit;
+            // Guardia: si la cola quedó vacía (no debería), reconstruir
+            if (!adaptiveState.activeQueue || adaptiveState.activeQueue.length === 0) {
+                adaptiveState.activeQueue    = buildQueue(adaptiveState.stats);
+                adaptiveState.currentPassIdx = 0;
+            }
+        } else {
+            adaptiveState = buildFreshAdaptiveState();
+        }
+
+        state.results = [];
         showScreen('screen-quiz');
         showQuestion();
     }
 
     function showQuestion() {
-        state.answered   = false;
-        var q            = state.questions[state.current];
+        state.answered = false;
+
+        var q = getCurrentQuestion();
+        if (!q) {
+            // Pregunta no encontrada en el conjunto actual: saltar
+            adaptiveState.currentPassIdx++;
+            saveAdaptiveState();
+            if (adaptiveState.currentPassIdx >= adaptiveState.activeQueue.length) {
+                finishQuiz();
+            } else {
+                showQuestion();
+            }
+            return;
+        }
+
         state.curAnswers = shuffle(q.respuestas);
 
-        /* Progreso */
         el('quiz-progress').textContent =
-            'Pregunta ' + (state.current + 1) + ' de ' + state.questions.length;
-
-        /* Enunciado */
+            'Pregunta ' + (adaptiveState.currentPassIdx + 1) + ' de ' + adaptiveState.activeQueue.length;
         el('quiz-question').textContent = q.enunciado;
-
-        /* Timeout badge oculto */
         el('quiz-timeout-msg').classList.add('d-none');
 
-        /* Respuestas */
         var container = el('quiz-answers');
         container.innerHTML = '';
         state.curAnswers.forEach(function (r, i) {
             var col = document.createElement('div');
             col.className = 'col-12 col-md-6';
-
             var btn = document.createElement('button');
-            btn.className    = 'btn btn-outline-dark w-100 h-100 text-start answer-btn';
-            btn.dataset.idx  = i;
-            btn.textContent  = r.texto;
+            btn.className   = 'btn btn-outline-dark w-100 h-100 text-start answer-btn';
+            btn.dataset.idx = i;
+            btn.textContent = r.texto;
             btn.addEventListener('click', function () { handleAnswer(i); });
-
             col.appendChild(btn);
             container.appendChild(col);
         });
 
-        /* Temporizador */
         startTimer();
         state.timerStartMs = performance.now();
     }
 
     function startTimer() {
         clearInterval(state.timerInt);
-
-        var bar    = el('quiz-timer-bar');
-        var secsEl = el('quiz-timer-secs');
-        var total  = state.timeLimit;
+        var bar     = el('quiz-timer-bar');
+        var secsEl  = el('quiz-timer-secs');
+        var total   = state.timeLimit;
         var elapsed = 0;
-        var TICK   = 100; // ms
+        var TICK    = 100;
 
-      bar.classList.remove('bg-warning', 'bg-danger');
-      bar.classList.add('bg-success');
-        bar.style.width = '100%';
-        secsEl.textContent = total;
+        bar.classList.remove('bg-warning', 'bg-danger');
+        bar.classList.add('bg-success');
+        bar.style.width        = '100%';
+        secsEl.textContent     = total;
 
         state.timerInt = setInterval(function () {
             elapsed += TICK;
@@ -324,17 +522,16 @@ require __DIR__ . '/layouts/header.php';
 
             if (remaining <= 0) {
                 clearInterval(state.timerInt);
-                bar.style.width = '0%';
+                bar.style.width    = '0%';
                 secsEl.textContent = '0';
                 handleAnswer(null);
                 return;
             }
 
             var pct = (remaining / total) * 100;
-            bar.style.width = pct + '%';
+            bar.style.width    = pct + '%';
             secsEl.textContent = Math.ceil(remaining);
 
-            /* Color: verde → naranja → rojo */
             bar.classList.remove('bg-success', 'bg-warning', 'bg-danger');
             if (pct <= 25)      bar.classList.add('bg-danger');
             else if (pct <= 50) bar.classList.add('bg-warning');
@@ -347,14 +544,36 @@ require __DIR__ . '/layouts/header.php';
         state.answered = true;
         clearInterval(state.timerInt);
 
-        var timeSpent    = Math.min((performance.now() - state.timerStartMs) / 1000, state.timeLimit);
-        var answers      = state.curAnswers;
-        var isTimeout    = (idx === null);
-        var isCorrect    = !isTimeout && answers[idx].es_correcta;
+        var timeSpent     = Math.min((performance.now() - state.timerStartMs) / 1000, state.timeLimit);
+        var answers       = state.curAnswers;
+        var isTimeout     = (idx === null);
+        var isCorrect     = !isTimeout && answers[idx].es_correcta;
         var correctAnswer = answers.find(function (a) { return a.es_correcta; }) || answers[0];
+        var q             = getCurrentQuestion();
+
+        /* Actualizar estadísticas adaptativas de la pregunta */
+        var st = adaptiveState.stats[q.id];
+        st.attempts++;
+        st.lastSeenAt = adaptiveState.passNumber;
+
+        if (isCorrect) {
+            st.correctStreak++;
+            if (st.correctStreak >= COOLDOWN_STREAK) {
+                // Racha completada: entra en pausa
+                st.cooldownRemaining = COOLDOWN_PASSES;
+                st.correctStreak     = 0;
+            }
+        } else {
+            // Fallo o timeout: reinicia racha, acumula error
+            st.wrongCount++;
+            st.correctStreak = 0;
+        }
+
+        adaptiveState.currentPassIdx++;
+        saveAdaptiveState();
 
         state.results.push({
-            enunciado:     state.questions[state.current].enunciado,
+            enunciado:     q.enunciado,
             timeSpent:     timeSpent,
             correct:       isCorrect,
             selected:      isTimeout ? null : answers[idx].texto,
@@ -365,8 +584,7 @@ require __DIR__ . '/layouts/header.php';
         showFeedback(idx, answers, isTimeout);
 
         setTimeout(function () {
-            state.current++;
-            if (state.current >= state.questions.length) {
+            if (adaptiveState.currentPassIdx >= adaptiveState.activeQueue.length) {
                 finishQuiz();
             } else {
                 showQuestion();
@@ -378,17 +596,15 @@ require __DIR__ . '/layouts/header.php';
         document.querySelectorAll('.answer-btn').forEach(function (btn) {
             btn.disabled = true;
             var i = parseInt(btn.dataset.idx, 10);
-          btn.classList.remove('btn-outline-dark', 'btn-success', 'btn-danger', 'text-white', 'opacity-50');
-
+            btn.classList.remove('btn-outline-dark', 'btn-success', 'btn-danger', 'text-white', 'opacity-50');
             if (answers[i].es_correcta) {
-            btn.classList.add('btn-success', 'text-white');
+                btn.classList.add('btn-success', 'text-white');
             } else if (!isTimeout && i === selectedIdx) {
-            btn.classList.add('btn-danger', 'text-white');
+                btn.classList.add('btn-danger', 'text-white');
             } else {
-            btn.classList.add('opacity-50');
+                btn.classList.add('opacity-50');
             }
         });
-
         if (isTimeout) {
             el('quiz-timeout-msg').classList.remove('d-none');
         }
@@ -396,6 +612,20 @@ require __DIR__ . '/layouts/header.php';
 
     /* ── Resultados ────────────────────────────────────────────────────────── */
     function finishQuiz() {
+        /*
+         * Preparar la cola adaptativa para la próxima pasada:
+         * 1. Decrementar cooldown de todas las preguntas en pausa.
+         * 2. Reconstruir activeQueue con el nuevo orden de prioridades.
+         */
+        adaptiveState.passNumber++;
+        Object.keys(adaptiveState.stats).forEach(function (id) {
+            var st = adaptiveState.stats[id];
+            if (st.cooldownRemaining > 0) st.cooldownRemaining--;
+        });
+        adaptiveState.activeQueue    = buildQueue(adaptiveState.stats);
+        adaptiveState.currentPassIdx = 0;
+        saveAdaptiveState();
+
         var total   = state.results.length;
         var correct = state.results.filter(function (r) { return r.correct; }).length;
         var wrong   = total - correct;
@@ -404,7 +634,6 @@ require __DIR__ . '/layouts/header.php';
             ? state.results.reduce(function (s, r) { return s + r.timeSpent; }, 0) / total
             : 0;
 
-        /* Guardar en sessionStorage */
         try {
             sessionStorage.setItem('simulador_results', JSON.stringify({
                 timestamp: new Date().toISOString(),
@@ -423,39 +652,33 @@ require __DIR__ . '/layouts/header.php';
     }
 
     function renderResults(total, correct, wrong, pct, avgTime) {
-        /* Círculo SVG */
-        var ring         = el('score-ring-val');
-        var circumference = 263.9; /* 2π × 42 */
-        var offset       = circumference * (1 - pct / 100);
-        var color        = pct >= 70 ? '#198754' : pct >= 50 ? '#fd7e14' : '#dc3545';
+        var ring          = el('score-ring-val');
+        var circumference = 263.9;
+        var offset        = circumference * (1 - pct / 100);
+        var color         = pct >= 70 ? '#198754' : pct >= 50 ? '#fd7e14' : '#dc3545';
 
-        /* Animar con requestAnimationFrame para que la transición CSS funcione */
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
-            ring.setAttribute('stroke', color);
-            ring.setAttribute('stroke-dashoffset', offset);
+                ring.setAttribute('stroke', color);
+                ring.setAttribute('stroke-dashoffset', offset);
             });
         });
 
         el('score-text').textContent = pct + '%';
         el('score-text').setAttribute('fill', color);
-
-        /* Tarjetas */
         el('res-correct').textContent = correct;
         el('res-wrong').textContent   = wrong;
         el('res-total').textContent   = total;
         el('res-avg').textContent     = avgTime.toFixed(1) + ' s';
 
-        /* Tabla de detalle */
         var tbody = qs('#res-table tbody');
         tbody.innerHTML = '';
-
-        state.results.forEach(function (r, i) {
+        state.results.forEach(function (r) {
             var tr = document.createElement('tr');
 
             var iconHtml = r.correct
-              ? '<span class="badge bg-success">OK</span>'
-              : '<span class="badge bg-danger">X</span>';
+                ? '<span class="badge bg-success">OK</span>'
+                : '<span class="badge bg-danger">X</span>';
 
             var selectedHtml;
             if (r.timeout) {
@@ -476,15 +699,14 @@ require __DIR__ . '/layouts/header.php';
                 '<td>' + selectedHtml + '</td>' +
                 '<td>' + correctHtml + '</td>' +
                 '<td class="text-nowrap font-monospace">' + r.timeSpent.toFixed(1) + ' s</td>';
-
             tbody.appendChild(tr);
         });
     }
 
     /* ── Toggle tabla de detalle ───────────────────────────────────────────── */
     el('btn-toggle-table').addEventListener('click', function () {
-        var wrap = el('res-table-wrap');
-        var icon = this.querySelector('i');
+        var wrap   = el('res-table-wrap');
+        var icon   = this.querySelector('i');
         var hidden = wrap.style.display === 'none';
         wrap.style.display = hidden ? '' : 'none';
         icon.className = hidden ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
@@ -492,8 +714,11 @@ require __DIR__ . '/layouts/header.php';
 
     /* ── Repetir ───────────────────────────────────────────────────────────── */
     el('btn-retry').addEventListener('click', function () {
-        showScreen('screen-setup');
+        showSetup();
     });
+
+    /* ── Inicialización ────────────────────────────────────────────────────── */
+    updateProgressInfo();
 
 }());
 </script>
