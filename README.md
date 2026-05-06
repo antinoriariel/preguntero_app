@@ -1,6 +1,6 @@
 # Preguntero App
 
-Scaffold inicial para una aplicacion en PHP puro con MySQL.
+Scaffold inicial para una aplicacion en PHP puro con MySQL y bootstrapp.
 
 ## Objetivo
 
