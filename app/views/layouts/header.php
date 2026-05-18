@@ -6,7 +6,7 @@ $_name  = htmlspecialchars($_app['app_name']);
 $_title = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' . $_name : $_name;
 ?>
 <!DOCTYPE html>
-<html lang="es" data-bs-theme="dark">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,13 +16,14 @@ $_title = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' . $_name : 
     <link href="/css/main.css" rel="stylesheet">
 </head>
 <body class="d-flex flex-column min-vh-100">
+
 <div class="bg-orbs" aria-hidden="true">
   <div class="bg-orb bg-orb-1"></div>
   <div class="bg-orb bg-orb-2"></div>
   <div class="bg-orb bg-orb-3"></div>
 </div>
 
-<nav class="navbar navbar-expand-lg navbar-dark glass-nav sticky-top">
+<nav class="navbar navbar-expand-lg navbar-light glass-nav sticky-top">
     <div class="container">
         <a class="navbar-brand" href="<?= $_user ? '/preguntas' : '/login' ?>">
             <i class="fa-solid fa-circle-question me-2"></i><?= $_name ?>
@@ -59,10 +60,10 @@ $_title = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' . $_name : 
                 </li>
             </ul>
             <div class="d-flex align-items-center gap-2">
-                <span class="navbar-text text-white-50">
+                <span class="navbar-text text-muted small">
                     <i class="fa-solid fa-user me-1"></i><?= htmlspecialchars($_user['nombre'] . ' ' . $_user['apellido']) ?>
                 </span>
-                <a class="btn btn-outline-light btn-sm" href="/logout">
+                <a class="btn btn-outline-dark btn-sm" href="/logout">
                     <i class="fa-solid fa-right-from-bracket me-1"></i>Salir
                 </a>
             </div>
@@ -81,65 +82,69 @@ $_title = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' . $_name : 
             </ul>
             <?php endif; ?>
         </div>
-
-        <div class="offcanvas offcanvas-end text-bg-dark d-lg-none" tabindex="-1" id="mobileNav" aria-labelledby="mobileNavLabel">
-            <div class="offcanvas-header">
-                <h5 class="offcanvas-title" id="mobileNavLabel">
-                    <i class="fa-solid fa-circle-question me-2"></i><?= $_name ?>
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
-            </div>
-
-            <div class="offcanvas-body">
-                <?php if ($_user): ?>
-                <ul class="navbar-nav gap-1 mb-3">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/preguntas">
-                            <i class="fa-solid fa-list-ul me-1"></i>Preguntas
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/preguntas/create">
-                            <i class="fa-solid fa-plus me-1"></i>Nueva
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/preguntas/importar">
-                            <i class="fa-solid fa-file-import me-1"></i>Importar
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/simulador">
-                            <i class="fa-solid fa-bolt me-1"></i>Simulador
-                        </a>
-                    </li>
-                </ul>
-
-                <div class="border-top pt-3 d-grid gap-2">
-                    <div class="text-white-50 small">
-                        <i class="fa-solid fa-user me-1"></i><?= htmlspecialchars($_user['nombre'] . ' ' . $_user['apellido']) ?>
-                    </div>
-                    <a class="btn btn-outline-light" href="/logout">
-                        <i class="fa-solid fa-right-from-bracket me-1"></i>Salir
-                    </a>
-                </div>
-                <?php else: ?>
-                <ul class="navbar-nav gap-1">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/login">
-                            <i class="fa-solid fa-right-to-bracket me-1"></i>Ingresar
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/register">
-                            <i class="fa-solid fa-user-plus me-1"></i>Registrarse
-                        </a>
-                    </li>
-                </ul>
-                <?php endif; ?>
-            </div>
-        </div>
     </div>
 </nav>
+
+<?php /* Offcanvas FUERA del <nav>: backdrop-filter en el navbar crea un
+         containing-block para position:fixed, lo que confina el offcanvas
+         al alto del navbar en lugar del viewport completo. */ ?>
+<div class="offcanvas offcanvas-end app-offcanvas" tabindex="-1"
+     id="mobileNav" aria-labelledby="mobileNavLabel">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title fw-bold" id="mobileNavLabel">
+            <i class="fa-solid fa-circle-question me-2 text-accent"></i><?= $_name ?>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+    </div>
+
+    <div class="offcanvas-body d-flex flex-column">
+        <?php if ($_user): ?>
+        <ul class="navbar-nav gap-1 flex-grow-1">
+            <li class="nav-item">
+                <a class="nav-link" href="/preguntas">
+                    <i class="fa-solid fa-list-ul me-2"></i>Preguntas
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/preguntas/create">
+                    <i class="fa-solid fa-plus me-2"></i>Nueva pregunta
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/preguntas/importar">
+                    <i class="fa-solid fa-file-import me-2"></i>Importar
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/simulador">
+                    <i class="fa-solid fa-bolt me-2"></i>Simulador
+                </a>
+            </li>
+        </ul>
+
+        <div class="border-top pt-3 mt-3">
+            <div class="text-muted small mb-2">
+                <i class="fa-solid fa-user me-1"></i><?= htmlspecialchars($_user['nombre'] . ' ' . $_user['apellido']) ?>
+            </div>
+            <a class="btn btn-outline-dark w-100" href="/logout">
+                <i class="fa-solid fa-right-from-bracket me-1"></i>Salir
+            </a>
+        </div>
+        <?php else: ?>
+        <ul class="navbar-nav gap-1">
+            <li class="nav-item">
+                <a class="nav-link" href="/login">
+                    <i class="fa-solid fa-right-to-bracket me-2"></i>Ingresar
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/register">
+                    <i class="fa-solid fa-user-plus me-2"></i>Registrarse
+                </a>
+            </li>
+        </ul>
+        <?php endif; ?>
+    </div>
+</div>
 
 <main class="container py-4 flex-grow-1">
