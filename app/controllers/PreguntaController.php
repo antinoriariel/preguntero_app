@@ -189,6 +189,44 @@ final class PreguntaController
         return [$errors, $enunciado, $respuestas];
     }
 
+    public function exportar(): void
+    {
+        Session::requireLogin();
+
+        $preguntas = Pregunta::all();
+
+        if (empty($preguntas)) {
+            Session::flash('success', 'No hay preguntas para exportar.');
+            header('Location: /preguntas');
+            exit;
+        }
+
+        $blocks = [];
+        foreach ($preguntas as $p) {
+            $respuestas = Respuesta::findByPregunta((int)$p['id_pregunta']);
+            if (empty($respuestas)) {
+                continue;
+            }
+
+            $lines = [$p['enunciado']];
+            foreach ($respuestas as $i => $r) {
+                $num  = $i + 1;
+                $text = $r['respuesta'] . ($r['es_correcta'] ? ' *' : '');
+                $lines[] = "$num. $text";
+            }
+            $blocks[] = implode("\n", $lines);
+        }
+
+        $output   = implode("\n---\n", $blocks);
+        $filename = 'preguntas_' . date('Y-m-d') . '.txt';
+
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Length: ' . strlen($output));
+        echo $output;
+        exit;
+    }
+
     public function importarForm(): void
     {
         Session::requireLogin();

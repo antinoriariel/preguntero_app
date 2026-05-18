@@ -50,6 +50,7 @@ if ($uri === '/preguntas/create'    && $method === 'GET')  { $preguntas->create(
 if ($uri === '/preguntas/store'     && $method === 'POST') { $preguntas->store();       exit; }
 if ($uri === '/preguntas/importar'  && $method === 'GET')  { $preguntas->importarForm(); exit; }
 if ($uri === '/preguntas/importar'  && $method === 'POST') { $preguntas->importar();    exit; }
+if ($uri === '/preguntas/exportar'  && $method === 'GET')  { $preguntas->exportar();    exit; }
 
 // Preguntas (rutas dinámicas con id)
 if (preg_match('#^/preguntas/(\d+)$#', $uri, $m) && $method === 'GET') {
