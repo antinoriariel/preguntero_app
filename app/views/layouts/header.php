@@ -6,17 +6,23 @@ $_name  = htmlspecialchars($_app['app_name']);
 $_title = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' . $_name : $_name;
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $_title ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+    <link href="/css/main.css" rel="stylesheet">
 </head>
-<body class="d-flex flex-column min-vh-100 bg-body-tertiary">
+<body class="d-flex flex-column min-vh-100">
+<div class="bg-orbs" aria-hidden="true">
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+  <div class="bg-orb bg-orb-3"></div>
+</div>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+<nav class="navbar navbar-expand-lg navbar-dark glass-nav sticky-top">
     <div class="container">
         <a class="navbar-brand" href="<?= $_user ? '/preguntas' : '/login' ?>">
             <i class="fa-solid fa-circle-question me-2"></i><?= $_name ?>

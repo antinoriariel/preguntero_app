@@ -6,7 +6,9 @@
       "Bash(php -l \"c:\\\\Users\\\\Kernel\\\\Documents\\\\a.preguntero_app\\\\app\\\\models\\\\Pregunta.php\")",
       "Bash(php -l \"c:\\\\Users\\\\Kernel\\\\Documents\\\\a.preguntero_app\\\\app\\\\views\\\\preguntas\\\\import.php\")",
       "Bash(php -l \"c:\\\\Users\\\\Kernel\\\\Documents\\\\a.preguntero_app\\\\app\\\\views\\\\preguntas\\\\index.php\")",
-      "Bash(php -l \"c:\\\\Users\\\\Kernel\\\\Documents\\\\a.preguntero_app\\\\app\\\\views\\\\simulador.php\")"
+      "Bash(php -l \"c:\\\\Users\\\\Kernel\\\\Documents\\\\a.preguntero_app\\\\app\\\\views\\\\simulador.php\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Kernel\\\\Documents\\\\a.preguntero_app\" -Recurse)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }
