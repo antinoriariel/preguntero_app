@@ -327,11 +327,13 @@ require __DIR__ . '/layouts/header.php';
                 attempts: 0, lastSeenAt: 0, cooldownRemaining: 0, retired: false
             };
         });
+        var queue = shuffle(QUESTIONS.map(function (q) { return q.id; }));
         return {
             version:         1,
             questionSetHash: makeQSetHash(),
             stats:           stats,
-            activeQueue:     shuffle(QUESTIONS.map(function (q) { return q.id; })),
+            activeQueue:     queue,
+            baseQueueSize:   queue.length,
             passNumber:      1,
             currentPassIdx:  0,
             timeLimit:       state.timeLimit
@@ -483,6 +485,7 @@ require __DIR__ . '/layouts/header.php';
             if (!adaptiveState.activeQueue || adaptiveState.activeQueue.length === 0) {
                 adaptiveState.activeQueue    = buildQueue(adaptiveState.stats);
                 adaptiveState.currentPassIdx = 0;
+                adaptiveState.baseQueueSize  = adaptiveState.activeQueue.length;
             }
         } else {
             adaptiveState = buildFreshAdaptiveState();
@@ -518,7 +521,7 @@ require __DIR__ . '/layouts/header.php';
         state.curAnswers = shuffle(q.respuestas);
 
         el('quiz-progress').textContent =
-            'Pregunta ' + (adaptiveState.currentPassIdx + 1) + ' de ' + adaptiveState.activeQueue.length;
+            'Pregunta ' + (adaptiveState.currentPassIdx + 1) + ' de ' + (adaptiveState.baseQueueSize || adaptiveState.activeQueue.length);
         el('quiz-question').textContent = q.enunciado;
         el('quiz-timeout-msg').classList.add('d-none');
 
@@ -601,12 +604,18 @@ require __DIR__ . '/layouts/header.php';
                 st.cooldownRemaining = 1;   // acertada: salta la próxima pasada
             }
         } else {
-            // Fallo o timeout: reinicia racha, vuelve con prioridad alta
+            // Fallo o timeout: reinicia racha, reinserta 2 posiciones más adelante
             st.wrongCount++;
             st.correctStreak = 0;
         }
 
         adaptiveState.currentPassIdx++;
+
+        if (!isCorrect) {
+            // Insertar la pregunta fallada 2 posiciones después de la actual
+            var insertAt = Math.min(adaptiveState.currentPassIdx + 2, adaptiveState.activeQueue.length);
+            adaptiveState.activeQueue.splice(insertAt, 0, q.id);
+        }
         saveAdaptiveState();
 
         state.results.push({
@@ -661,6 +670,7 @@ require __DIR__ . '/layouts/header.php';
         });
         adaptiveState.activeQueue    = buildQueue(adaptiveState.stats);
         adaptiveState.currentPassIdx = 0;
+        adaptiveState.baseQueueSize  = adaptiveState.activeQueue.length;
         saveAdaptiveState();
 
         var total   = state.results.length;
